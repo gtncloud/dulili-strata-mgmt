@@ -1,0 +1,793 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  phone     String?
+  avatarUrl String?
+  role      String   @default("owner") // owner, tenant, committee, manager, admin
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships          BuildingMembership[]
+  maintenanceRequests  MaintenanceRequest[]  @relation("SubmittedBy")
+  assignedMaintenance  MaintenanceRequest[]  @relation("AssignedTo")
+  maintenanceWorkLogs  MaintenanceWorkLog[]
+  announcements        Announcement[]
+  documents            Document[]
+  approvedTransactions Transaction[]
+  votes                Vote[]
+  amenityBookings      AmenityBooking[]
+  createdChannels      ChatChannel[]         @relation("ChannelCreator")
+  channelMemberships   ChatChannelMember[]
+  chatMessages         ChatMessage[]
+  messageReplies       ChatMessageReply[]
+  createdSurveys       Survey[]              @relation("SurveyCreator")
+  surveyResponses      SurveyResponse[]
+  marketplaceListings  MarketplaceListing[]
+  marketplaceMessages  MarketplaceMessage[]
+  localBusinesses      LocalBusiness[]
+  businessReviews      LocalBusinessReview[]
+  neighborProfile      NeighborProfile?
+  createdAlerts        EmergencyAlert[]      @relation("AlertCreator")
+  emergencyResponses   EmergencyResponse[]
+  alertUpdates         EmergencyAlertUpdate[]
+}
+
+model Building {
+  id                  String   @id @default(uuid())
+  name                String
+  address             String
+  suburb              String
+  state               String   @default("NSW")
+  postcode            String
+  strataPlanNumber    String?
+  totalLots           Int      @default(0)
+  adminFundBalance    Float    @default(0)
+  capitalWorksBalance Float    @default(0)
+  insuranceExpiry     DateTime?
+  imageUrl            String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  lots                Lot[]
+  memberships         BuildingMembership[]
+  maintenanceRequests MaintenanceRequest[]
+  announcements       Announcement[]
+  documents           Document[]
+  levies              Levy[]
+  transactions        Transaction[]
+  meetings            Meeting[]
+  motions             Motion[]
+  amenities           Amenity[]
+  amenityBookings     AmenityBooking[]
+  chatChannels        ChatChannel[]
+  surveys             Survey[]
+  marketplaceListings MarketplaceListing[]
+  localBusinesses     LocalBusiness[]
+  sustainabilityMetrics SustainabilityMetric[]
+  sustainabilityChallenges SustainabilityChallenge[]
+  emergencyAlerts     EmergencyAlert[]
+  emergencyContacts   EmergencyContact[]
+  equipment           Equipment[]
+  iotDevices          IoTDevice[]
+  buildingMetrics     BuildingMetric[]
+}
+
+model Lot {
+  id              String   @id @default(uuid())
+  buildingId      String
+  lotNumber       Int
+  unitNumber      String
+  floor           Int?
+  unitEntitlement Float    @default(1)
+  createdAt       DateTime @default(now())
+
+  building    Building             @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  memberships BuildingMembership[]
+  levies      Levy[]
+  votes       Vote[]
+}
+
+model BuildingMembership {
+  id         String   @id @default(uuid())
+  userId     String
+  buildingId String
+  lotId      String?
+  role       String   @default("owner") // owner, tenant, committee, manager
+  status     String   @default("active") // active, inactive, pending
+  joinedAt   DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  lot      Lot?     @relation(fields: [lotId], references: [id])
+
+  @@unique([userId, buildingId])
+}
+
+model MaintenanceRequest {
+  id           String   @id @default(uuid())
+  buildingId   String
+  submittedById String
+  assignedToId String?
+  title        String
+  description  String
+  category     String   @default("other") // plumbing, electrical, structural, cosmetic, other
+  priority     String   @default("medium") // low, medium, high, urgent
+  status       String   @default("submitted") // submitted, reviewed, in_progress, resolved, closed
+  location     String?
+  workNotes    String?
+  estimatedHours Float?
+  actualHours  Float?
+  completionNotes String?
+  resolvedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  building    Building              @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  submittedBy User                  @relation("SubmittedBy", fields: [submittedById], references: [id])
+  assignedTo  User?                 @relation("AssignedTo", fields: [assignedToId], references: [id])
+  photos      MaintenancePhoto[]
+  workLogs    MaintenanceWorkLog[]
+}
+
+model MaintenancePhoto {
+  id                   String   @id @default(uuid())
+  maintenanceRequestId String
+  url                  String
+  caption              String?
+  type                 String   @default("before") // before, after
+  createdAt            DateTime @default(now())
+
+  maintenanceRequest MaintenanceRequest @relation(fields: [maintenanceRequestId], references: [id], onDelete: Cascade)
+}
+
+model MaintenanceWorkLog {
+  id                   String   @id @default(uuid())
+  maintenanceRequestId String
+  userId               String
+  action               String // status_change, note_added, assigned, started, completed
+  notes                String?
+  oldStatus            String?
+  newStatus            String?
+  hoursWorked          Float?
+  createdAt            DateTime @default(now())
+
+  maintenanceRequest MaintenanceRequest @relation(fields: [maintenanceRequestId], references: [id], onDelete: Cascade)
+  user               User               @relation(fields: [userId], references: [id])
+}
+
+model Announcement {
+  id             String   @id @default(uuid())
+  buildingId     String
+  authorId       String
+  title          String
+  content        String
+  isPinned       Boolean  @default(false)
+  targetAudience String   @default("all") // all, owners, tenants, committee
+  publishedAt    DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorId], references: [id])
+}
+
+model Document {
+  id         String    @id @default(uuid())
+  buildingId String
+  uploadedBy String
+  name       String
+  category   String    @default("other") // insurance, minutes, financial, compliance, bylaws, other
+  fileUrl    String
+  fileName   String    @default("")
+  fileSize   Int       @default(0)
+  mimeType   String    @default("application/octet-stream")
+  version    Int       @default(1)
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  uploader User     @relation(fields: [uploadedBy], references: [id])
+}
+
+model Levy {
+  id               String    @id @default(uuid())
+  buildingId       String
+  lotId            String
+  period           String
+  amount           Float
+  dueDate          DateTime
+  status           String    @default("pending") // pending, paid, overdue
+  paidAt           DateTime?
+  paymentReference String?
+  createdAt        DateTime  @default(now())
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  lot      Lot      @relation(fields: [lotId], references: [id])
+}
+
+model Transaction {
+  id          String   @id @default(uuid())
+  buildingId  String
+  type        String // income, expense
+  category    String
+  description String
+  amount      Float
+  date        DateTime
+  receiptUrl  String?
+  approvedBy  String?
+  createdAt   DateTime @default(now())
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  approver User?    @relation(fields: [approvedBy], references: [id])
+}
+
+model Meeting {
+  id             String    @id @default(uuid())
+  buildingId     String
+  type           String // agm, egm, committee
+  title          String
+  description    String?
+  scheduledAt    DateTime
+  location       String?
+  status         String    @default("scheduled") // scheduled, in_progress, completed
+  minutesContent String?
+  createdAt      DateTime  @default(now())
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  motions  Motion[]
+}
+
+model Motion {
+  id           String   @id @default(uuid())
+  meetingId    String?
+  buildingId   String
+  title        String
+  description  String
+  type         String   @default("ordinary") // ordinary, special, unanimous
+  status       String   @default("draft") // draft, open, closed
+  votesFor     Int      @default(0)
+  votesAgainst Int      @default(0)
+  votesAbstain Int      @default(0)
+  result       String?  // passed, failed, deferred
+  createdAt    DateTime @default(now())
+
+  meeting  Meeting? @relation(fields: [meetingId], references: [id])
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  votes    Vote[]
+}
+
+model Vote {
+  id            String   @id @default(uuid())
+  motionId      String
+  userId        String
+  lotId         String?
+  vote          String // for, against, abstain
+  isProxy       Boolean  @default(false)
+  proxyHolderId String?
+  createdAt     DateTime @default(now())
+
+  motion Motion @relation(fields: [motionId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+  lot    Lot?   @relation(fields: [lotId], references: [id])
+
+  @@unique([motionId, userId])
+}
+
+model Amenity {
+  id                String   @id @default(uuid())
+  buildingId        String
+  name              String
+  type              String // gym, pool, bbq, party_room, guest_suite, tennis_court, meeting_room, other
+  description       String?
+  imageUrl          String?
+  capacity          Int?
+  bookingFee        Float    @default(0)
+  depositRequired   Float    @default(0)
+  minBookingHours   Int      @default(1)
+  maxBookingHours   Int      @default(4)
+  advanceBookingDays Int     @default(30)
+  isActive          Boolean  @default(true)
+  rules             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  building Building          @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  bookings AmenityBooking[]
+}
+
+model AmenityBooking {
+  id              String    @id @default(uuid())
+  amenityId       String
+  userId          String
+  buildingId      String
+  startTime       DateTime
+  endTime         DateTime
+  status          String    @default("pending") // pending, confirmed, cancelled, completed
+  purpose         String?
+  guestCount      Int?
+  totalFee        Float     @default(0)
+  depositPaid     Float     @default(0)
+  depositRefunded Boolean   @default(false)
+  paymentStatus   String    @default("unpaid") // unpaid, paid, refunded
+  cancelledAt     DateTime?
+  cancelReason    String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  amenity  Amenity  @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+}
+
+model ChatChannel {
+  id          String   @id @default(uuid())
+  buildingId  String
+  name        String
+  description String?
+  type        String   @default("general") // general, maintenance, social, committee
+  isPrivate   Boolean  @default(false)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  building     Building            @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  creator      User                @relation("ChannelCreator", fields: [createdBy], references: [id])
+  messages     ChatMessage[]
+  members      ChatChannelMember[]
+}
+
+model ChatChannelMember {
+  id          String   @id @default(uuid())
+  channelId   String
+  userId      String
+  role        String   @default("member") // member, moderator
+  lastReadAt  DateTime?
+  joinedAt    DateTime @default(now())
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+}
+
+model ChatMessage {
+  id         String    @id @default(uuid())
+  channelId  String
+  userId     String
+  content    String
+  isEdited   Boolean   @default(false)
+  editedAt   DateTime?
+  deletedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  channel ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replies ChatMessageReply[]
+}
+
+model ChatMessageReply {
+  id        String   @id @default(uuid())
+  messageId String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Survey {
+  id          String    @id @default(uuid())
+  buildingId  String
+  createdBy   String
+  title       String
+  description String?
+  type        String    @default("poll") // poll, survey, feedback
+  status      String    @default("draft") // draft, active, closed
+  isAnonymous Boolean   @default(false)
+  allowMultiple Boolean @default(false)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  building  Building         @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  creator   User             @relation("SurveyCreator", fields: [createdBy], references: [id])
+  questions SurveyQuestion[]
+  responses SurveyResponse[]
+}
+
+model SurveyQuestion {
+  id           String   @id @default(uuid())
+  surveyId     String
+  question     String
+  type         String   @default("multiple_choice") // multiple_choice, single_choice, text, rating, yes_no
+  options      String[] // JSON array of options for choice questions
+  isRequired   Boolean  @default(true)
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  survey  Survey               @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  answers SurveyQuestionAnswer[]
+}
+
+model SurveyResponse {
+  id         String   @id @default(uuid())
+  surveyId   String
+  userId     String?
+  submittedAt DateTime @default(now())
+
+  survey  Survey                 @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  user    User?                  @relation(fields: [userId], references: [id])
+  answers SurveyQuestionAnswer[]
+
+  @@unique([surveyId, userId])
+}
+
+model SurveyQuestionAnswer {
+  id         String   @id @default(uuid())
+  responseId String
+  questionId String
+  answer     String   // JSON for flexibility (can be string, array, number)
+  createdAt  DateTime @default(now())
+
+  response SurveyResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  question SurveyQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model MarketplaceListing {
+  id          String   @id @default(uuid())
+  buildingId  String
+  userId      String
+  category    String   // sale, free, trade, service, wanted, lending
+  title       String
+  description String
+  price       Float?
+  images      String[] // Array of image URLs
+  status      String   @default("active") // active, sold, closed
+  location    String?  // Optional: unit number or "common area"
+  contactInfo String?  // Optional: phone or preferred contact
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  building Building             @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  user     User                 @relation(fields: [userId], references: [id])
+  messages MarketplaceMessage[]
+}
+
+model MarketplaceMessage {
+  id        String   @id @default(uuid())
+  listingId String
+  senderId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  listing MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  sender  User               @relation(fields: [senderId], references: [id])
+}
+
+model LocalBusiness {
+  id          String   @id @default(uuid())
+  buildingId  String
+  name        String
+  category    String   // trades, services, restaurants, shops, emergency
+  description String?
+  phone       String?
+  email       String?
+  website     String?
+  address     String?
+  hours       String?
+  isVerified  Boolean  @default(false)
+  isEmergency Boolean  @default(false)
+  addedBy     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  building Building              @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  creator  User                  @relation(fields: [addedBy], references: [id])
+  reviews  LocalBusinessReview[]
+}
+
+model LocalBusinessReview {
+  id         String   @id @default(uuid())
+  businessId String
+  userId     String
+  rating     Int      // 1-5
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  business LocalBusiness @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id])
+
+  @@unique([businessId, userId])
+}
+
+model NeighborProfile {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  bio        String?
+  interests  String[] // hobbies, activities
+  lookingFor String[] // friends, babysitter, dog walker, etc.
+  visibility String   @default("building") // building, floor, private
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sentConnections     NeighborConnection[] @relation("ConnectionSender")
+  receivedConnections NeighborConnection[] @relation("ConnectionReceiver")
+}
+
+model NeighborConnection {
+  id        String   @id @default(uuid())
+  senderId  String
+  receiverId String
+  status    String   @default("pending") // pending, accepted, declined
+  message   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sender   NeighborProfile @relation("ConnectionSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver NeighborProfile @relation("ConnectionReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@unique([senderId, receiverId])
+}
+
+model SustainabilityMetric {
+  id         String   @id @default(uuid())
+  buildingId String
+  metricType String   // energy, water, waste, recycling
+  value      Float
+  unit       String
+  period     DateTime
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+}
+
+model SustainabilityChallenge {
+  id           String   @id @default(uuid())
+  buildingId   String
+  title        String
+  description  String
+  goal         Float
+  current      Float    @default(0)
+  unit         String
+  startDate    DateTime
+  endDate      DateTime
+  participants Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// PHASE 2: NEXT-GEN FEATURES
+// ============================================
+
+// Emergency Response System
+model EmergencyAlert {
+  id          String   @id @default(uuid())
+  buildingId  String
+  createdBy   String
+  type        String   // fire, flood, gas, security, medical, weather, power, elevator
+  severity    String   @default("high") // low, medium, high, critical
+  title       String
+  description String
+  location    String?
+  status      String   @default("active") // active, resolved, false_alarm
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  building  Building              @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  creator   User                  @relation("AlertCreator", fields: [createdBy], references: [id])
+  responses EmergencyResponse[]
+  updates   EmergencyAlertUpdate[]
+}
+
+model EmergencyResponse {
+  id        String   @id @default(uuid())
+  alertId   String
+  userId    String
+  status    String   // safe, need_help, evacuated, at_assembly
+  location  String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  alert EmergencyAlert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  user  User           @relation(fields: [userId], references: [id])
+
+  @@unique([alertId, userId])
+}
+
+model EmergencyAlertUpdate {
+  id        String   @id @default(uuid())
+  alertId   String
+  userId    String
+  message   String
+  createdAt DateTime @default(now())
+
+  alert EmergencyAlert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  user  User           @relation(fields: [userId], references: [id])
+}
+
+model EmergencyContact {
+  id          String   @id @default(uuid())
+  buildingId  String
+  name        String
+  role        String   // fire, police, ambulance, building_manager, security, maintenance
+  phone       String
+  email       String?
+  isEmergency Boolean  @default(false)
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+}
+
+// AI Predictive Maintenance
+model Equipment {
+  id              String    @id @default(uuid())
+  buildingId      String
+  name            String
+  type            String    // hvac, elevator, pump, boiler, generator, fire_system, security, other
+  location        String?
+  manufacturer    String?
+  modelNumber     String?
+  serialNumber    String?
+  installDate     DateTime?
+  warrantyExpiry  DateTime?
+  lastService     DateTime?
+  nextService     DateTime?
+  status          String    @default("operational") // operational, maintenance_needed, critical, offline
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  building    Building                @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  sensors     EquipmentSensor[]
+  predictions MaintenancePrediction[]
+  history     EquipmentServiceHistory[]
+}
+
+model EquipmentSensor {
+  id          String   @id @default(uuid())
+  equipmentId String
+  sensorType  String   // temperature, vibration, pressure, humidity, current, voltage, flow
+  unit        String   // celsius, hz, psi, percent, amps, volts, lpm
+  minNormal   Float?
+  maxNormal   Float?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  equipment Equipment       @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  readings  SensorReading[]
+}
+
+model SensorReading {
+  id        String   @id @default(uuid())
+  sensorId  String
+  value     Float
+  isAnomaly Boolean  @default(false)
+  timestamp DateTime @default(now())
+
+  sensor EquipmentSensor @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+
+  @@index([sensorId, timestamp])
+}
+
+model MaintenancePrediction {
+  id                String    @id @default(uuid())
+  equipmentId       String
+  predictedIssue    String
+  description       String?
+  probability       Float     // 0-1
+  confidence        Float     @default(0.5) // 0-1
+  estimatedDate     DateTime
+  severity          String    @default("medium") // low, medium, high, critical
+  recommendedAction String
+  estimatedCost     Float?
+  estimatedDowntime Int?      // hours
+  status            String    @default("pending") // pending, scheduled, in_progress, resolved, false_alarm
+  actualDate        DateTime?
+  wasAccurate       Boolean?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+}
+
+model EquipmentServiceHistory {
+  id          String   @id @default(uuid())
+  equipmentId String
+  serviceType String   // routine, repair, inspection, replacement, emergency
+  description String
+  performedBy String?
+  cost        Float?
+  hoursSpent  Float?
+  partsUsed   String?
+  notes       String?
+  serviceDate DateTime
+  createdAt   DateTime @default(now())
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+}
+
+// IoT Dashboard
+model IoTDevice {
+  id          String   @id @default(uuid())
+  buildingId  String
+  name        String
+  deviceType  String   // thermostat, lock, camera, sensor, meter, controller
+  category    String   // climate, security, energy, water, access, other
+  location    String?
+  manufacturer String?
+  model       String?
+  ipAddress   String?
+  macAddress  String?
+  status      String   @default("online") // online, offline, error, maintenance
+  lastSeen    DateTime?
+  firmware    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  building Building         @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  metrics  IoTDeviceMetric[]
+  alerts   IoTDeviceAlert[]
+}
+
+model IoTDeviceMetric {
+  id         String   @id @default(uuid())
+  deviceId   String
+  metricType String   // temperature, humidity, energy, water, occupancy, air_quality, etc.
+  value      Float
+  unit       String
+  timestamp  DateTime @default(now())
+
+  device IoTDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, timestamp])
+}
+
+model IoTDeviceAlert {
+  id          String    @id @default(uuid())
+  deviceId    String
+  alertType   String    // threshold_exceeded, device_offline, anomaly_detected, battery_low
+  severity    String    @default("medium") // low, medium, high, critical
+  message     String
+  isResolved  Boolean   @default(false)
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  device IoTDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+}
+
+model BuildingMetric {
+  id         String   @id @default(uuid())
+  buildingId String
+  metricType String   // energy_consumption, water_usage, occupancy, temperature, air_quality
+  value      Float
+  unit       String
+  period     String   @default("hourly") // hourly, daily, weekly, monthly
+  timestamp  DateTime @default(now())
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  @@index([buildingId, metricType, timestamp])
+}
