@@ -1,0 +1,84 @@
+# Percy Visual Testing Setup Guide
+
+## Step 1: Create Percy Account (FREE)
+
+1. Go to https://percy.io
+2. Sign up with GitHub (recommended) or email
+3. Click "Create new project"
+4. Name it: "Dulili Strata Management"
+5. Select "Playwright" as the integration
+
+## Step 2: Get Your Percy Token
+
+1. In your Percy project, go to "Project settings"
+2. Copy your PERCY_TOKEN
+3. It looks like: percy_xxxxxxxxxxxxxxxxxxxxx
+
+## Step 3: Set Percy Token Locally
+
+Run this command (replace with your actual token):
+
+export PERCY_TOKEN=percy_your_token_here
+
+Or add to your ~/.zshrc or ~/.bashrc:
+
+echo 'export PERCY_TOKEN=percy_your_token_here' >> ~/.zshrc
+source ~/.zshrc
+
+## Step 4: Run Visual Tests
+
+# Run tests with Percy (uploads snapshots)
+npm run test:percy
+
+# Or use the script
+./test-with-percy.sh
+
+# Run without Percy (local only)
+npm run test:visual
+
+## Step 5: View Results
+
+1. Tests will run and upload snapshots to Percy
+2. Go to https://percy.io/your-org/dulili-strata-management
+3. View visual diffs and approve/reject changes
+
+## What Gets Tested
+
+✅ 50+ page snapshots
+✅ Mobile, tablet, desktop views
+✅ All features across the platform
+✅ Automatic visual diff detection
+
+## Free Tier Limits
+
+- 5,000 snapshots/month
+- Unlimited team members
+- 30 days of history
+- GitHub integration
+
+Your 50+ pages × 3 viewports = ~150 snapshots per test run
+You can run ~33 times per month on free tier!
+
+## Tips
+
+1. Run Percy tests before deploying
+2. Review diffs carefully in Percy dashboard
+3. Approve changes that are intentional
+4. Reject unexpected visual changes
+5. Percy will auto-approve after you approve once
+
+## Troubleshooting
+
+If tests fail:
+1. Make sure dev server is running: npm run dev
+2. Check PERCY_TOKEN is set: echo $PERCY_TOKEN
+3. Check Percy dashboard for errors
+4. Run without Percy first: npm run test:visual
+
+## Next Steps
+
+1. Set up Percy token
+2. Run first test: npm run test:percy
+3. View results in Percy dashboard
+4. Set up GitHub integration (optional)
+5. Add Percy to CI/CD (optional)

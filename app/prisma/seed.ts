@@ -30,6 +30,8 @@ async function main() {
     await prisma.motion.deleteMany();
     await prisma.meeting.deleteMany();
     await prisma.transaction.deleteMany();
+    await prisma.debtRecoveryAction.deleteMany();
+    await prisma.levyPaymentPlan.deleteMany();
     await prisma.levy.deleteMany();
     await prisma.document.deleteMany();
     await prisma.announcement.deleteMany();
@@ -1075,7 +1077,7 @@ async function main() {
     const readings = [];
     for (let i = 0; i < 24; i++) {
         const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
-        
+
         // HVAC temperature (normal)
         readings.push({
             sensorId: hvacTempSensor.id,
@@ -1273,7 +1275,7 @@ async function main() {
     const iotMetrics = [];
     for (let i = 0; i < 24; i++) {
         const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
-        
+
         // Temperature
         iotMetrics.push({
             deviceId: thermostat1.id,
@@ -1317,7 +1319,7 @@ async function main() {
     const buildingMetrics = [];
     for (let i = 0; i < 24; i++) {
         const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
-        
+
         buildingMetrics.push({
             buildingId: building.id,
             metricType: "energy_consumption",
@@ -1349,6 +1351,331 @@ async function main() {
     await prisma.buildingMetric.createMany({ data: buildingMetrics });
 
     console.log("✅ Created IoT dashboard data");
+
+    // ============================================
+    // PHASE 3: FIRE SAFETY & DEBT RECOVERY
+    // ============================================
+
+    // Fire Safety Schedule
+    const fireSchedule = await prisma.fireSafetySchedule.create({
+        data: {
+            buildingId: building.id,
+            issuedBy: "Sydney City Council",
+            issueDate: new Date("2024-01-15"),
+            documentUrl: "/documents/fire-safety-schedule-2024.pdf",
+        },
+    });
+
+    // Fire Safety Measures
+    const fireMeasures = await prisma.fireSafetyMeasure.createMany({
+        data: [
+            {
+                scheduleId: fireSchedule.id,
+                buildingId: building.id,
+                measureType: "fire_alarm",
+                location: "All floors - central system",
+                standard: "AS1851-2012",
+                testingFrequency: "semi_annually",
+                lastTested: new Date("2025-08-15"),
+                nextTestDue: new Date("2026-02-15"),
+                status: "compliant",
+            },
+            {
+                scheduleId: fireSchedule.id,
+                buildingId: building.id,
+                measureType: "sprinkler",
+                location: "All floors and common areas",
+                standard: "AS1851-2012",
+                testingFrequency: "annually",
+                lastTested: new Date("2025-06-01"),
+                nextTestDue: new Date("2026-06-01"),
+                status: "compliant",
+            },
+            {
+                scheduleId: fireSchedule.id,
+                buildingId: building.id,
+                measureType: "extinguisher",
+                location: "Each floor - 4 units per floor",
+                standard: "AS1851-2012",
+                testingFrequency: "semi_annually",
+                lastTested: new Date("2025-09-01"),
+                nextTestDue: new Date("2026-03-01"),
+                status: "compliant",
+            },
+            {
+                scheduleId: fireSchedule.id,
+                buildingId: building.id,
+                measureType: "exit_sign",
+                location: "All exits and stairwells",
+                standard: "AS1851-2012",
+                testingFrequency: "semi_annually",
+                lastTested: new Date("2025-08-15"),
+                nextTestDue: new Date("2026-02-15"),
+                status: "compliant",
+            },
+            {
+                scheduleId: fireSchedule.id,
+                buildingId: building.id,
+                measureType: "emergency_light",
+                location: "All common areas and exits",
+                standard: "AS1851-2012",
+                testingFrequency: "semi_annually",
+                lastTested: new Date("2025-08-15"),
+                nextTestDue: new Date("2026-02-15"),
+                status: "compliant",
+            },
+            {
+                scheduleId: fireSchedule.id,
+                buildingId: building.id,
+                measureType: "hose_reel",
+                location: "Each floor - 2 units per floor",
+                standard: "AS1851-2012",
+                testingFrequency: "annually",
+                lastTested: new Date("2025-06-01"),
+                nextTestDue: new Date("2026-06-01"),
+                status: "compliant",
+            },
+            {
+                scheduleId: fireSchedule.id,
+                buildingId: building.id,
+                measureType: "smoke_detector",
+                location: "All units and common areas",
+                standard: "AS1851-2012",
+                testingFrequency: "annually",
+                lastTested: new Date("2025-05-15"),
+                nextTestDue: new Date("2026-05-15"),
+                status: "compliant",
+            },
+            {
+                scheduleId: fireSchedule.id,
+                buildingId: building.id,
+                measureType: "fire_door",
+                location: "Stairwell doors - all floors",
+                standard: "AS1851-2012",
+                testingFrequency: "annually",
+                lastTested: new Date("2025-07-01"),
+                nextTestDue: new Date("2026-07-01"),
+                status: "compliant",
+            },
+        ],
+    });
+
+    // Annual Fire Safety Statements
+    await prisma.annualFireSafetyStatement.createMany({
+        data: [
+            {
+                buildingId: building.id,
+                year: 2024,
+                issueDate: new Date("2024-06-15"),
+                dueDate: new Date("2024-06-30"),
+                status: "submitted",
+                practitionerName: "John Smith",
+                practitionerNumber: "FP12345",
+                submittedToCouncil: true,
+                councilSubmissionDate: new Date("2024-06-16"),
+                submittedToFireRescue: true,
+                fireRescueSubmissionDate: new Date("2024-06-16"),
+                certificateUrl: "/documents/afss-2024.pdf",
+                displayedInBuilding: true,
+            },
+            {
+                buildingId: building.id,
+                year: 2025,
+                issueDate: new Date("2025-06-15"),
+                dueDate: new Date("2025-06-30"),
+                status: "submitted",
+                practitionerName: "John Smith",
+                practitionerNumber: "FP12345",
+                submittedToCouncil: true,
+                councilSubmissionDate: new Date("2025-06-16"),
+                submittedToFireRescue: true,
+                fireRescueSubmissionDate: new Date("2025-06-16"),
+                certificateUrl: "/documents/afss-2025.pdf",
+                displayedInBuilding: true,
+            },
+            {
+                buildingId: building.id,
+                year: 2026,
+                dueDate: new Date("2026-06-30"),
+                status: "draft",
+                notes: "Due in 4 months - schedule inspection",
+            },
+        ],
+    });
+
+    // Emergency Plan
+    await prisma.emergencyPlan.create({
+        data: {
+            buildingId: building.id,
+            version: "2.0",
+            approvedDate: new Date("2025-01-15"),
+            evacuationProcedure: "In case of fire alarm:\n1. Remain calm\n2. Close doors and windows\n3. Use stairs (not elevators)\n4. Proceed to assembly point\n5. Do not re-enter building until cleared by authorities",
+            assemblyPoints: JSON.stringify([
+                { name: "Primary", location: "Front car park - near street" },
+                { name: "Secondary", location: "Park across the street" },
+            ]),
+            emergencyContacts: JSON.stringify([
+                { role: "Fire", phone: "000", isPrimary: true },
+                { role: "Building Manager", phone: "+61 2 9876 5432", isPrimary: true },
+                { role: "Security", phone: "+61 2 9876 5433", isPrimary: false },
+            ]),
+            lastDrillDate: new Date("2025-11-15"),
+            nextDrillDue: new Date("2026-05-15"),
+            documentUrl: "/documents/emergency-plan-v2.pdf",
+        },
+    });
+
+    console.log("✅ Created fire safety compliance data");
+
+    // Debt Recovery - Overdue Levies
+    // Use lot2 for overdue levies (tenant's lot)
+
+    // Create overdue levy
+    const overdueLevy = await prisma.levy.create({
+        data: {
+            buildingId: building.id,
+            lotId: lot2.id,
+            period: "Q4 2025",
+            amount: 1500,
+            dueDate: new Date("2025-12-31"),
+            status: "overdue",
+        },
+    });
+
+    // Payment Plan Request (Active)
+    const activePaymentPlan = await prisma.levyPaymentPlan.create({
+        data: {
+            buildingId: building.id,
+            lotId: lot2.id,
+            userId: ownerUser.id,
+            status: "active",
+            requestDate: new Date("2026-01-15"),
+            responseDate: new Date("2026-01-20"),
+            approvedDate: new Date("2026-01-22"),
+            startDate: new Date("2026-02-01"),
+            endDate: new Date("2026-07-31"),
+            totalOwed: 1500,
+            interestOwed: 45,
+            recoveryCosts: 0,
+            installmentAmount: 257.50,
+            installmentFrequency: "monthly",
+            numberOfInstallments: 6,
+            paidInstallments: 1,
+            requestInterestWaiver: true,
+            interestWaived: false,
+            approvedBy: managerUser.id,
+            notes: "Owner experiencing temporary financial hardship",
+        },
+    });
+
+    // Payment Plan Payments
+    await prisma.paymentPlanPayment.createMany({
+        data: [
+            {
+                planId: activePaymentPlan.id,
+                installmentNumber: 1,
+                dueDate: new Date("2026-02-01"),
+                amount: 257.50,
+                paidDate: new Date("2026-02-01"),
+                paidAmount: 257.50,
+                status: "paid",
+                paymentReference: "PAY001",
+                appliedToLevies: 257.50,
+                appliedToInterest: 0,
+                appliedToCosts: 0,
+            },
+            {
+                planId: activePaymentPlan.id,
+                installmentNumber: 2,
+                dueDate: new Date("2026-03-01"),
+                amount: 257.50,
+                status: "pending",
+            },
+            {
+                planId: activePaymentPlan.id,
+                installmentNumber: 3,
+                dueDate: new Date("2026-04-01"),
+                amount: 257.50,
+                status: "pending",
+            },
+            {
+                planId: activePaymentPlan.id,
+                installmentNumber: 4,
+                dueDate: new Date("2026-05-01"),
+                amount: 257.50,
+                status: "pending",
+            },
+            {
+                planId: activePaymentPlan.id,
+                installmentNumber: 5,
+                dueDate: new Date("2026-06-01"),
+                amount: 257.50,
+                status: "pending",
+            },
+            {
+                planId: activePaymentPlan.id,
+                installmentNumber: 6,
+                dueDate: new Date("2026-07-01"),
+                amount: 257.50,
+                status: "pending",
+            },
+        ],
+    });
+
+    // Debt Recovery Actions
+    await prisma.debtRecoveryAction.createMany({
+        data: [
+            {
+                buildingId: building.id,
+                lotId: lot2.id,
+                userId: ownerUser.id,
+                actionType: "reminder",
+                actionDate: new Date("2026-01-07"),
+                status: "completed",
+                amountOwed: 1500,
+                description: "7-day overdue reminder sent",
+            },
+            {
+                buildingId: building.id,
+                lotId: lot2.id,
+                userId: ownerUser.id,
+                actionType: "payment_plan_offered",
+                actionDate: new Date("2026-01-14"),
+                status: "completed",
+                amountOwed: 1500,
+                description: "Payment plan option offered as per NSW requirements",
+            },
+        ],
+    });
+
+    // Levy Reminders
+    await prisma.levyReminder.createMany({
+        data: [
+            {
+                levyId: overdueLevy.id,
+                sentDate: new Date("2025-12-24"),
+                reminderType: "7_day_before",
+                sentTo: ownerUser.email,
+                status: "sent",
+            },
+            {
+                levyId: overdueLevy.id,
+                sentDate: new Date("2025-12-31"),
+                reminderType: "due_date",
+                sentTo: ownerUser.email,
+                status: "sent",
+            },
+            {
+                levyId: overdueLevy.id,
+                sentDate: new Date("2026-01-07"),
+                reminderType: "7_day_overdue",
+                sentTo: ownerUser.email,
+                status: "sent",
+            },
+        ],
+    });
+
+    console.log("✅ Created debt recovery data");
 
     console.log("\n🎉 Database seeded successfully!");
     console.log("\n📝 Test credentials:");

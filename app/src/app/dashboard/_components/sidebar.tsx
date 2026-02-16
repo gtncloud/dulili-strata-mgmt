@@ -27,7 +27,9 @@ import {
     Leaf,
     AlertTriangle,
     Brain,
-    Wifi
+    Wifi,
+    Shield,
+    CreditCard
 } from "lucide-react";
 
 export function Sidebar({ userRole }: { userRole: string }) {
@@ -56,6 +58,11 @@ export function Sidebar({ userRole }: { userRole: string }) {
         { href: "/dashboard/emergency", label: "Emergency Response", icon: AlertTriangle },
         { href: "/dashboard/predictive-maintenance", label: "Predictive Maintenance", icon: Brain },
         { href: "/dashboard/iot", label: "IoT Dashboard", icon: Wifi },
+    ];
+
+    const complianceLinks = [
+        { href: "/dashboard/compliance/fire-safety", label: "Fire Safety", icon: Shield },
+        { href: "/dashboard/finance/debt-recovery", label: "Debt Recovery", icon: CreditCard },
     ];
 
     const financeLinks = [
@@ -118,6 +125,37 @@ export function Sidebar({ userRole }: { userRole: string }) {
                         {smartBuildingLinks.map((link) => {
                             const Icon = link.icon;
                             const isActive = pathname === link.href;
+                            return (
+                                <Link
+                                    key={link.href}
+                                    href={link.href}
+                                    className={cn(
+                                        "flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors",
+                                        isActive
+                                            ? "bg-gray-200 text-gray-900 font-medium"
+                                            : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                                    )}
+                                >
+                                    <Icon className={cn(
+                                        "h-4 w-4 flex-shrink-0",
+                                        isActive ? "text-gray-700" : "text-gray-400"
+                                    )} />
+                                    <span className="truncate">{link.label}</span>
+                                </Link>
+                            );
+                        })}
+                    </nav>
+                </div>
+
+                {/* Compliance Section */}
+                <div className="mb-6">
+                    <h3 className="px-2 mb-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                        Compliance
+                    </h3>
+                    <nav className="space-y-0.5">
+                        {complianceLinks.map((link) => {
+                            const Icon = link.icon;
+                            const isActive = pathname.startsWith(link.href);
                             return (
                                 <Link
                                     key={link.href}

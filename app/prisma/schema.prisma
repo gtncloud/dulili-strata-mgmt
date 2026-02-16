@@ -41,6 +41,8 @@ model User {
   createdAlerts        EmergencyAlert[]      @relation("AlertCreator")
   emergencyResponses   EmergencyResponse[]
   alertUpdates         EmergencyAlertUpdate[]
+  paymentPlans         LevyPaymentPlan[]
+  debtRecoveryActions  DebtRecoveryAction[]
 }
 
 model Building {
@@ -81,6 +83,13 @@ model Building {
   equipment           Equipment[]
   iotDevices          IoTDevice[]
   buildingMetrics     BuildingMetric[]
+  fireSafetySchedules FireSafetySchedule[]
+  fireSafetyMeasures  FireSafetyMeasure[]
+  fireSafetyStatements AnnualFireSafetyStatement[]
+  fireSafetyInspections FireSafetyInspection[]
+  emergencyPlans      EmergencyPlan[]
+  paymentPlans        LevyPaymentPlan[]
+  debtRecoveryActions DebtRecoveryAction[]
 }
 
 model Lot {
@@ -96,6 +105,8 @@ model Lot {
   memberships BuildingMembership[]
   levies      Levy[]
   votes       Vote[]
+  paymentPlans LevyPaymentPlan[]
+  debtRecoveryActions DebtRecoveryAction[]
 }
 
 model BuildingMembership {
@@ -214,6 +225,7 @@ model Levy {
 
   building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   lot      Lot      @relation(fields: [lotId], references: [id])
+  reminders LevyReminder[]
 }
 
 model Transaction {
@@ -790,4 +802,203 @@ model BuildingMetric {
   building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
 
   @@index([buildingId, metricType, timestamp])
+}
+
+// ============================================
+// PHASE 3: COMPLIANCE FEATURES
+// ============================================
+
+// Fire Safety Compliance
+model FireSafetySchedule {
+  id         String   @id @default(uuid())
+  buildingId String
+  issuedBy   String
+  issueDate  DateTime
+  documentUrl String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  building Building           @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  measures FireSafetyMeasure[]
+}
+
+model FireSafetyMeasure {
+  id               String    @id @default(uuid())
+  scheduleId       String?
+  buildingId       String
+  measureType      String    // fire_alarm, sprinkler, extinguisher, exit_sign, emergency_light, fire_door, hose_reel, smoke_detector
+  location         String
+  standard         String    @default("AS1851-2012")
+  testingFrequency String    // monthly, quarterly, semi_annually, annually
+  lastTested       DateTime?
+  nextTestDue      DateTime
+  status           String    @default("compliant") // compliant, overdue, failed, requires_attention
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  schedule    FireSafetySchedule?  @relation(fields: [scheduleId], references: [id])
+  building    Building             @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  inspections FireSafetyInspection[]
+}
+
+model AnnualFireSafetyStatement {
+  id                    String    @id @default(uuid())
+  buildingId            String
+  year                  Int
+  issueDate             DateTime?
+  dueDate               DateTime
+  status                String    @default("draft") // draft, submitted, overdue
+  practitionerName      String?
+  practitionerNumber    String?
+  submittedToCouncil    Boolean   @default(false)
+  councilSubmissionDate DateTime?
+  submittedToFireRescue Boolean   @default(false)
+  fireRescueSubmissionDate DateTime?
+  certificateUrl        String?
+  displayedInBuilding   Boolean   @default(false)
+  notes                 String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  @@unique([buildingId, year])
+}
+
+model FireSafetyInspection {
+  id                String   @id @default(uuid())
+  buildingId        String
+  measureId         String
+  inspectionDate    DateTime
+  inspectorName     String
+  inspectorCompany  String?
+  result            String   // pass, fail, requires_attention
+  findings          String?
+  correctiveActions String?
+  nextInspectionDue DateTime
+  certificateUrl    String?
+  cost              Float?
+  createdAt         DateTime @default(now())
+
+  building Building          @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  measure  FireSafetyMeasure @relation(fields: [measureId], references: [id], onDelete: Cascade)
+}
+
+model EmergencyPlan {
+  id                  String    @id @default(uuid())
+  buildingId          String
+  version             String
+  approvedDate        DateTime
+  evacuationProcedure String
+  assemblyPoints      String    // JSON array
+  emergencyContacts   String    // JSON array
+  lastDrillDate       DateTime?
+  nextDrillDue        DateTime
+  documentUrl         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+}
+
+// Debt Recovery System
+model LevyPaymentPlan {
+  id                   String    @id @default(uuid())
+  buildingId           String
+  lotId                String
+  userId               String
+  status               String    @default("pending") // pending, approved, rejected, active, completed, defaulted, cancelled
+  requestDate          DateTime  @default(now())
+  responseDate         DateTime?
+  approvedDate         DateTime?
+  startDate            DateTime?
+  endDate              DateTime?
+  totalOwed            Float
+  interestOwed         Float     @default(0)
+  recoveryCosts        Float     @default(0)
+  installmentAmount    Float
+  installmentFrequency String    // weekly, fortnightly, monthly
+  numberOfInstallments Int
+  paidInstallments     Int       @default(0)
+  requestInterestWaiver Boolean  @default(false)
+  interestWaived       Boolean   @default(false)
+  refusalReason        String?
+  approvedBy           String?
+  notes                String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  building   Building               @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  lot        Lot                    @relation(fields: [lotId], references: [id])
+  user       User                   @relation(fields: [userId], references: [id])
+  payments   PaymentPlanPayment[]
+  extensions PaymentPlanExtension[]
+}
+
+model PaymentPlanPayment {
+  id                String    @id @default(uuid())
+  planId            String
+  installmentNumber Int
+  dueDate           DateTime
+  amount            Float
+  paidDate          DateTime?
+  paidAmount        Float?
+  status            String    @default("pending") // pending, paid, overdue, partial
+  paymentReference  String?
+  appliedToLevies   Float     @default(0)
+  appliedToInterest Float     @default(0)
+  appliedToCosts    Float     @default(0)
+  notes             String?
+  createdAt         DateTime  @default(now())
+
+  plan LevyPaymentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+}
+
+model PaymentPlanExtension {
+  id               String    @id @default(uuid())
+  planId           String
+  requestDate      DateTime  @default(now())
+  requestedEndDate DateTime
+  status           String    @default("pending") // pending, approved, rejected
+  reason           String
+  responseDate     DateTime?
+  approvedBy       String?
+  notes            String?
+  createdAt        DateTime  @default(now())
+
+  plan LevyPaymentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+}
+
+model DebtRecoveryAction {
+  id                  String    @id @default(uuid())
+  buildingId          String
+  lotId               String
+  userId              String
+  actionType          String    // notice, reminder, payment_plan_offered, tribunal_application, court_action
+  actionDate          DateTime  @default(now())
+  dueDate             DateTime?
+  status              String    @default("pending") // pending, completed, cancelled
+  amountOwed          Float
+  description         String
+  documentUrl         String?
+  tribunalOrderNumber String?
+  notes               String?
+  createdAt           DateTime  @default(now())
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  lot      Lot      @relation(fields: [lotId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+}
+
+model LevyReminder {
+  id           String   @id @default(uuid())
+  levyId       String
+  sentDate     DateTime @default(now())
+  reminderType String   // 7_day_before, due_date, 7_day_overdue, 14_day_overdue, 30_day_overdue, final_notice
+  sentTo       String
+  status       String   @default("sent") // sent, bounced, opened, clicked
+  createdAt    DateTime @default(now())
+
+  levy Levy @relation(fields: [levyId], references: [id], onDelete: Cascade)
 }
